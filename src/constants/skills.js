@@ -1,0 +1,16 @@
+export const SKILLS = {
+"Siege Crush":   { round:1,  desc:"Crushing blow — troops deal 40% bonus damage this round.",       troopMult:1.40, cmdMult:1.0  },
+"War Cry":       { round:2,  desc:"Battle cry — troops deal 25% bonus damage rounds 2–10.",         troopBuff:0.25, cmdMult:1.0  },
+"Shield Wall":   { round:3,  desc:"Defensive formation — reduces incoming damage by 35% this round.",defBuff:0.35,  cmdMult:1.0  },
+"Tidal Wave":    { round:4,  desc:"Devastating wave — commander strikes twice this round.",          cmdHits:2,     troopMult:1.0 },
+"Foresight":     { round:5,  desc:"Tactical insight — nullifies enemy skill effect this round.",     nullifyEnemy:true            },
+"Anchor Strike": { round:6,  desc:"Powerful anchor blow — commander deals 60% bonus damage.",        cmdMult:1.60,  troopMult:1.0 },
+"Thornstorm":    { round:3,  desc:"Thorn barrage — troops deal 30% bonus damage this round.",       troopMult:1.30, cmdMult:1.0  },
+"Eagle Eye":     { round:2,  desc:"Precision aim — 50% chance to score a critical hit (+50% dmg).", crit:0.50,     troopMult:1.0 },
+"Root Bind":     { round:4,  desc:"Root the enemy — slows them, reducing their damage by 25% rounds 4–10.", rootDebuff:0.25      },
+"Soul Drain":    { round:1,  desc:"Soul drain — heals commander HP equal to damage dealt.",          cmdMult:1.20,  drain:true   },
+"Void Bolt":     { round:5,  desc:"Piercing void bolt — ignores 50% of enemy defense.",             pierce:0.50,   troopMult:1.0 },
+"Shadow Clone":  { round:3,  desc:"Shadow clone — troops attack twice this round.",                 troopHits:2,   cmdMult:1.0   },
+"Arcane Tempest":{ round:2,  desc:"Arcane storm — magical damage hits all enemies for 35% bonus.",  troopMult:1.35, cmdMult:1.1  },
+"Mending Light": { round:1,  desc:"Healing light — restores 20% of lost troop HP each round.",      healPct:0.20,  cmdMult:1.0  },
+};
