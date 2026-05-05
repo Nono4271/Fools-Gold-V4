@@ -82,28 +82,27 @@ const BIOME_SEEDS = (() => {
 
 const TERRAIN_NAMES = ["grass","forest","mountain","desert"];
 
-// ── World map polygons (from WorldMap.jsx POLYS) — SVG design space 700×660 ──
-// Tile space is 700×700; scale tile r → SVG y by (660/700)
+// ── World map polygons — tile space 700×700, matching HTML source of truth ──
 const POLYS = {
-  saltmere:          [[0,0],[220,0],[220,148],[140,155],[62,155],[0,118]],
-  tidesreach:        [[480,0],[700,0],[700,118],[640,155],[560,155],[480,148]],
-  brinefields:       [[62,155],[140,155],[220,148],[287,168],[240,192],[160,198],[95,198],[62,155]],
-  coralfen:          [[480,148],[560,155],[640,155],[540,198],[460,192],[412,168],[480,148]],
-  emberpeak:         [[0,118],[62,155],[95,198],[160,198],[203,192],[206,252],[122,305],[82,370],[0,370]],
-  ironhaven:         [[700,118],[700,370],[618,370],[578,305],[498,256],[540,198],[640,155],[700,118]],
-  shatteredShallows: [[202,192],[240,192],[287,168],[350,160],[412,168],[460,192],[540,198],[498,256],[394,296],[350,296],[306,296],[202,256],[198,260],[202,192]],
-  cinderplain:       [[0,370],[82,370],[122,305],[210,248],[202,490],[128,490],[0,490]],
-  stormwatch:        [[700,370],[618,370],[578,305],[498,256],[498,490],[572,490],[700,490]],
-  holyGrail:         [[306,296],[394,296],[422,372],[422,442],[350,470],[278,442],[278,372]],
-  ashenRift:         [[202,256],[306,296],[278,372],[278,442],[350,470],[278,460],[202,460]],
-  bloodmarch:        [[498,256],[394,296],[422,372],[422,442],[350,470],[422,460],[498,460]],
-  runemarks:         [[230,460],[278,460],[350,470],[350,605],[230,605],[230,460]],
-  boneridge:         [[470,460],[422,460],[350,470],[350,605],[470,605],[470,460]],
-  ashenveil:         [[0,490],[202,490],[202,460],[230,460],[230,605],[80,605],[0,605]],
-  grimhold:          [[470,460],[498,460],[498,490],[572,490],[700,490],[700,605],[470,605],[470,460]],
+  saltmere:          [[0,0],[200,0],[170,200],[0,200]],
+  tidesreach:        [[700,0],[500,0],[530,200],[700,200]],
+  emberpeak:         [[0,200],[170,200],[170,402],[0,402]],
+  ironhaven:         [[700,200],[530,200],[530,402],[700,402]],
+  ashenveil:         [[0,532],[170,532],[170,573],[215,573],[215,700],[0,700]],
+  grimhold:          [[700,532],[530,532],[530,573],[485,573],[485,700],[700,700]],
+  brinefields:       [[200,0],[295,0],[250,200],[250,261],[170,261],[170,200]],
+  coralfen:          [[500,0],[405,0],[450,200],[450,261],[530,261],[530,200]],
+  cinderplain:       [[0,402],[170,402],[170,532],[0,532]],
+  stormwatch:        [[700,402],[530,402],[530,532],[700,532]],
+  runemarks:         [[170,573],[350,573],[350,700],[215,700],[170,573]],
+  boneridge:         [[530,573],[350,573],[350,700],[485,700],[530,573]],
+  shatteredShallows: [[295,0],[405,0],[450,200],[450,261],[250,261],[250,200]],
+  ashenRift:         [[170,261],[350,261],[350,319],[275,319],[265,399],[275,479],[350,479],[350,573],[170,573]],
+  bloodmarch:        [[530,261],[350,261],[350,319],[425,319],[435,399],[425,479],[350,479],[350,573],[530,573]],
+  holyGrail:         [[275,319],[425,319],[435,399],[425,479],[275,479],[265,399]],
 };
 
-// Map region key → index in REGION_LIST
+// Map region key to index in REGION_LIST
 const REGION_KEY_TO_IDX = {};
 REGION_LIST.forEach((r,i) => { REGION_KEY_TO_IDX[r.key] = i; });
 
@@ -118,21 +117,11 @@ function pointInPoly(px, py, poly) {
   return inside;
 }
 
-// Tile (c,r) → SVG point — tile grid 700×700, SVG design space 700×660
-const Y_SCALE = 660/700;
-function tileToSVG(c, r) { return [c, r * Y_SCALE]; }
-
-// Northern sea polygon (matches WorldMap.jsx NORTH_SEA_POLY)
-const NORTH_SEA_POLY = [[220,0],[480,0],[480,148],[412,168],[350,160],[287,168],[220,148]];
-// Southern border SVG y threshold
-
 // Pre-bake lookup arrays ────────────────────────────────────────────────────
 function buildLookups() {
   const TERRAIN_MAP = new Uint8Array(SIZE);
   const REGION_MAP  = new Uint8Array(SIZE);
   const SHORE_MAP   = new Uint8Array(SIZE);
-  const OCEAN_MAP   = new Uint8Array(SIZE); // northern sea tiles
-  const BORDER_MAP  = new Uint8Array(SIZE); // southern border mountain tiles
 
   // Shore
   for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
@@ -151,38 +140,36 @@ function buildLookups() {
     TERRAIN_MAP[r*COLS+c]=ti<0?0:ti;
   }
 
-  // Region — polygon point-in-polygon, exact match to world map shapes
-  // Pre-compute region centroids for nearest-region fallback
-  const regionCentroids = REGION_LIST.map(reg => ({ idx: REGION_KEY_TO_IDX[reg.key] + 1, cx: reg.cx, cy: reg.cy * Y_SCALE }));
+  // Region — polygon point-in-polygon, gap-fill unassigned tiles to nearest region
+  const regionCentroids = REGION_LIST.map(reg => ({
+    idx: REGION_KEY_TO_IDX[reg.key] + 1,
+    cx: reg.cx,
+    cy: reg.cy,
+  }));
 
   const polyEntries = Object.entries(POLYS);
   for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
-    const [sx, sy] = tileToSVG(c, r);
     let found = 0;
     for (let p=0; p<polyEntries.length; p++) {
       const [key, poly] = polyEntries[p];
-      if (pointInPoly(sx, sy, poly)) {
+      if (pointInPoly(c, r, poly)) {
         found = REGION_KEY_TO_IDX[key] + 1;
         break;
       }
     }
-    // Gap fill: assign unassigned interior tiles (not ocean, not far south) to nearest region
-    if (!found && !pointInPoly(sx, sy, NORTH_SEA_POLY) && sy < 610) {
+    // Gap-fill: assign any unassigned non-shore tile to nearest region centroid
+    if (!found && !SHORE_MAP[r*COLS+c]) {
       let bestD = Infinity, bestIdx = 0;
       for (const rc of regionCentroids) {
-        const d = (sx - rc.cx) ** 2 + (sy - rc.cy) ** 2;
+        const d = (c - rc.cx) ** 2 + (r - rc.cy) ** 2;
         if (d < bestD) { bestD = d; bestIdx = rc.idx; }
       }
       found = bestIdx;
     }
     REGION_MAP[r*COLS+c] = found;
-    // Ocean: inside northern sea poly and not in any region
-    if (!found && pointInPoly(sx, sy, NORTH_SEA_POLY)) OCEAN_MAP[r*COLS+c] = 1;
-    // Any remaining unassigned tile (not ocean) = southern border mountain
-    if (!found && !OCEAN_MAP[r*COLS+c]) BORDER_MAP[r*COLS+c] = 1;
   }
 
-  return { TERRAIN_MAP, REGION_MAP, SHORE_MAP, OCEAN_MAP, BORDER_MAP };
+  return { TERRAIN_MAP, REGION_MAP, SHORE_MAP };
 }
 
 // ── Random spawn inside a region ─────────────────────────────────────────────
@@ -206,7 +193,7 @@ self.onmessage = function(e) {
 
   // Phase 1: prebake lookups (~10% of work)
   postMessage({ type:"progress", pct:5, label:"Building terrain..." });
-  const { TERRAIN_MAP, REGION_MAP, SHORE_MAP, OCEAN_MAP, BORDER_MAP } = buildLookups();
+  const { TERRAIN_MAP, REGION_MAP, SHORE_MAP } = buildLookups();
   postMessage({ type:"progress", pct:20, label:"Placing tiles..." });
 
   const m = {};
@@ -221,27 +208,7 @@ self.onmessage = function(e) {
         m[k]={c,r,k,terrain:"shore",rss:null,troopType:null,powerLevel:0,
           defCmd:null,owner:null,garrison:0,siege:0,siegeMax:0,
           garrisonDefeated:false,resetAt:null,
-          isHQ:false,isWin:false,isKeep:false,isShore:true,isOcean:false,isBorderMtn:false,
-          regionKey:null,regionName:null};
-        continue;
-      }
-
-      // Ocean tile (northern sea) — impassable, renders as water
-      if (OCEAN_MAP[idx]) {
-        m[k]={c,r,k,terrain:"shore",rss:null,troopType:null,powerLevel:0,
-          defCmd:null,owner:null,garrison:0,siege:0,siegeMax:0,
-          garrisonDefeated:false,resetAt:null,
-          isHQ:false,isWin:false,isKeep:false,isShore:true,isOcean:true,isBorderMtn:false,
-          regionKey:null,regionName:null};
-        continue;
-      }
-
-      // Southern border mountain — impassable, renders as mountain
-      if (BORDER_MAP[idx]) {
-        m[k]={c,r,k,terrain:"mountain",rss:null,troopType:null,powerLevel:0,
-          defCmd:null,owner:null,garrison:0,siege:0,siegeMax:0,
-          garrisonDefeated:false,resetAt:null,
-          isHQ:false,isWin:false,isKeep:false,isShore:false,isOcean:false,isBorderMtn:true,
+          isHQ:false,isWin:false,isKeep:false,isShore:true,
           regionKey:null,regionName:null};
         continue;
       }
