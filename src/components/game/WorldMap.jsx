@@ -13,84 +13,45 @@ function keepColor(owner) {
   return FAC_COLOR[owner] || "#cc8844";
 }
 
-// ── Design space: 700 wide × 660 tall ────────────────────────────────────
-// 700 matches the game tile grid width.
-// 660 = region area (625) + 35px southern peaks.
-// Polygons match v8 markup exactly.
-// Faction funnel layout:
-//   Pirates:  Saltmere(top-left)   → Brinefields   → Shattered Shallows → Holy Grail
-//   Merfolk:  Tidesreach(top-right) → Coralfen      → Shattered Shallows → Holy Grail
-//   Marines:  Ironhaven(far-right)  → Stormwatch    → Bloodmarch         → Holy Grail
-//   Orcs:     Grimhold(btm-right)   → Boneridge     → Bloodmarch         → Holy Grail
-//   Dragons:  Emberpeak(far-left)   → Cinderplain   → Ashen Rift         → Holy Grail
-//   Wizards:  Ashenveil(btm-left)   → Runemarks     → Ashen Rift         → Holy Grail
-
-const DW = 700, DH = 660;
+// ── Design space: 700×700 matching the tile grid ─────────────────────────────
+const DW = 700, DH = 700;
 
 const POLYS = {
-  // ── Top starts ──
-  saltmere:          [[0,0],[220,0],[220,148],[140,155],[62,155],[0,118]],
-  tidesreach:        [[480,0],[700,0],[700,118],[640,155],[560,155],[480,148]],
-
-  // ── Top farms ──
-  brinefields:       [[62,155],[140,155],[220,148],[287,168],[240,192],[160,198],[95,198],[62,155]],
-  coralfen:          [[480,148],[560,155],[640,155],[540,198],[460,192],[412,168],[480,148]],
-
-  // ── Side starts ──
-  emberpeak:         [[0,118],[62,155],[95,198],[160,198],[203,192],[206,252],[122,305],[82,370],[0,370]],
-  ironhaven:         [[700,118],[700,370],[618,370],[578,305],[498,256],[540,198],[640,155],[700,118]],
-
-  // ── Conflict top ──
-  shatteredShallows: [[202,192],[240,192],[287,168],[350,160],[412,168],[460,192],[540,198],[498,256],[394,296],[350,296],[306,296],[202,256],[198,260],[202,192]],
-
-  // ── Farm mid ──
-  cinderplain:       [[0,370],[82,370],[122,305],[210,248],[202,490],[128,490],[0,490]],
-  stormwatch:        [[700,370],[618,370],[578,305],[498,256],[498,490],[572,490],[700,490]],
-
-  // ── Holy Grail center ──
-  holyGrail:         [[306,296],[394,296],[422,372],[422,442],[350,470],[278,442],[278,372]],
-
-  // ── Conflict zones ──
-  ashenRift:         [[202,256],[306,296],[278,372],[278,442],[350,470],[278,460],[202,460]],
-  bloodmarch:        [[498,256],[394,296],[422,372],[422,442],[350,470],[422,460],[498,460]],
-
-  // ── Bottom farms ──
-  runemarks:         [[230,460],[278,460],[350,470],[350,605],[230,605],[230,460]],
-  boneridge:         [[470,460],[422,460],[350,470],[350,605],[470,605],[470,460]],
-
-  // ── Bottom starts ──
-  ashenveil:         [[0,490],[202,490],[202,460],[230,460],[230,605],[80,605],[0,605]],
-  grimhold:          [[470,460],[498,460],[498,490],[572,490],[700,490],[700,605],[470,605],[470,460]],
+  saltmere:          [[0,0],[200,0],[170,200],[0,200]],
+  tidesreach:        [[700,0],[500,0],[530,200],[700,200]],
+  emberpeak:         [[0,200],[170,200],[170,402],[0,402]],
+  ironhaven:         [[700,200],[530,200],[530,402],[700,402]],
+  ashenveil:         [[0,532],[170,532],[170,573],[215,573],[215,700],[0,700]],
+  grimhold:          [[700,532],[530,532],[530,573],[485,573],[485,700],[700,700]],
+  brinefields:       [[200,0],[295,0],[250,200],[250,261],[170,261],[170,200]],
+  coralfen:          [[500,0],[405,0],[450,200],[450,261],[530,261],[530,200]],
+  cinderplain:       [[0,402],[170,402],[170,532],[0,532]],
+  stormwatch:        [[700,402],[530,402],[530,532],[700,532]],
+  runemarks:         [[170,573],[350,573],[350,700],[215,700],[170,573]],
+  boneridge:         [[530,573],[350,573],[350,700],[485,700],[530,573]],
+  shatteredShallows: [[295,0],[405,0],[450,200],[450,261],[250,261],[250,200]],
+  ashenRift:         [[170,261],[350,261],[350,319],[275,319],[265,399],[275,479],[350,479],[350,573],[170,573]],
+  bloodmarch:        [[530,261],[350,261],[350,319],[425,319],[435,399],[425,479],[350,479],[350,573],[530,573]],
+  holyGrail:         [[275,319],[425,319],[435,399],[425,479],[275,479],[265,399]],
 };
 
-// Northern Sea fills gap between Saltmere/Tidesreach inner edges and top farms
-const NORTH_SEA_POLY = [[220,0],[480,0],[480,148],[412,168],[350,160],[287,168],[220,148]];
-
-
-// Southern border — fog/gradient silhouette (Option C)
-
-
-// Southern border — fog/gradient silhouette (Option C)
-// No MTN_ROWS or SNOW_TIPS needed — handled inline with SVG gradients
-
-
 const REGION_TERRAIN = {
-  saltmere:         { base:"#1e1e14", dark:"#141410" }, // Pirates — coastal scrub
-  tidesreach:       { base:"#101e28", dark:"#081418" }, // Merfolk — dark coastal
-  brinefields:      { base:"#241e0e", dark:"#181208" }, // Pirates farm — marsh
-  coralfen:         { base:"#102028", dark:"#081418" }, // Merfolk farm — reef
-  emberpeak:        { base:"#1e1010", dark:"#140808" }, // Dragons — volcanic
-  ironhaven:        { base:"#081428", dark:"#040c18" }, // Marines — iron coast
-  shatteredShallows:{ base:"#1e2e18", dark:"#141e10" }, // conflict — broken land
-  cinderplain:      { base:"#1e1408", dark:"#140e04" }, // Dragons farm — ash plain
-  stormwatch:       { base:"#081828", dark:"#040e18" }, // Marines farm — storm coast
-  holyGrail:        { base:"#1e3018", dark:"#142010" }, // sacred grove
-  ashenRift:        { base:"#281808", dark:"#1c1004" }, // conflict — ash rift
-  bloodmarch:       { base:"#220808", dark:"#180404" }, // conflict — blood soil
-  runemarks:        { base:"#141820", dark:"#0c1018" }, // Wizards farm — rune stone
-  boneridge:        { base:"#18140c", dark:"#100e08" }, // Orcs farm — bone ridge
-  ashenveil:        { base:"#120e1e", dark:"#0c0814" }, // Wizards — misty veil
-  grimhold:         { base:"#0e1808", dark:"#080e04" }, // Orcs — dark fortress
+  saltmere:         { base:"#1e1e14", dark:"#141410" },
+  tidesreach:       { base:"#101e28", dark:"#081418" },
+  brinefields:      { base:"#241e0e", dark:"#181208" },
+  coralfen:         { base:"#102028", dark:"#081418" },
+  emberpeak:        { base:"#1e1010", dark:"#140808" },
+  ironhaven:        { base:"#081428", dark:"#040c18" },
+  shatteredShallows:{ base:"#1e2e18", dark:"#141e10" },
+  cinderplain:      { base:"#1e1408", dark:"#140e04" },
+  stormwatch:       { base:"#081828", dark:"#040e18" },
+  holyGrail:        { base:"#1e3018", dark:"#142010" },
+  ashenRift:        { base:"#281808", dark:"#1c1004" },
+  bloodmarch:       { base:"#220808", dark:"#180404" },
+  runemarks:        { base:"#141820", dark:"#0c1018" },
+  boneridge:        { base:"#18140c", dark:"#100e08" },
+  ashenveil:        { base:"#120e1e", dark:"#0c0814" },
+  grimhold:         { base:"#0e1808", dark:"#080e04" },
 };
 
 function scalePts(pts, sx, sy) {
@@ -116,7 +77,6 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
   const [selected, setSelected] = useState(null);
   const [dotPos, setDotPos] = useState(() => panRef?.current || { x:4, y:4 });
 
-  // Poll panRef every 100ms to update dot — no React state in Game needed
   useEffect(() => {
     const id = setInterval(() => {
       if (panRef?.current) setDotPos({ ...panRef.current });
@@ -137,8 +97,6 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
 
   const selectedKeep = selected ? keeps.find(k => k.key === selected) : null;
 
-  // viewBox keeps full DW×DH design space visible; SVG scales to fill container.
-  // sx/sy = 1 because all polygon coords are already in design space.
   const sx = 1, sy = 1;
   const iconMult = ICON_SCALE;
 
@@ -152,7 +110,6 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
     }}>
       <style>{`
         @keyframes holyPulse { 0%,100%{opacity:.3} 50%{opacity:.6} }
-        @keyframes seaMove   { 0%{stroke-dashoffset:0} 100%{stroke-dashoffset:-44} }
       `}</style>
 
       {/* Top bar */}
@@ -183,24 +140,10 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
               <stop offset="0%" stopColor="transparent"/>
               <stop offset="100%" stopColor="rgba(0,0,0,0.45)"/>
             </radialGradient>
-            <pattern id="wm-sea" x="0" y="0" width={44*sx} height={22*sy} patternUnits="userSpaceOnUse">
-              <path d={`M0,${11*sy} Q${11*sx},${2*sy} ${22*sx},${11*sy} Q${33*sx},${20*sy} ${44*sx},${11*sy}`}
-                fill="none" stroke="#2a5a7a" strokeWidth={1.3} opacity=".7"
-                strokeDasharray={44*sx} style={{animation:"seaMove 3s linear infinite"}}/>
-            </pattern>
           </defs>
 
           {/* Base */}
           <rect width={DW} height={DH} fill="#0a1418"/>
-
-          {/* ── Northern Sea ── */}
-          <polygon points={scalePts(NORTH_SEA_POLY,sx,sy)} fill="#0a1e30" opacity=".95"/>
-          <polygon points={scalePts(NORTH_SEA_POLY,sx,sy)} fill="url(#wm-sea)" opacity=".85"/>
-          <text x={DW/2} y={82*sy} textAnchor="middle"
-            fontSize={Math.max(7,9*sx)} fill="#2a6a8a" letterSpacing="3" opacity=".75"
-            fontFamily="'Cinzel',serif" style={{pointerEvents:"none"}}>
-            NORTHERN SEA
-          </text>
 
           {/* ── Region polygons ── */}
           {keeps.map(reg => {
@@ -214,7 +157,6 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
             return (
               <g key={reg.key} style={{cursor:"pointer"}}
                 onClick={() => setSelected(isSel ? null : reg.key)}>
-                {/* Unowned: dark grey. Owned: faction color fill. HG: special. */}
                 <polygon points={scalePts(poly,sx,sy)}
                   fill={isHG ? "rgba(240,192,64,0.08)" : facCol ? facCol : "#1e1e1e"}
                   opacity={isHG ? 1 : facCol ? 0.35 : 0.7}/>
@@ -238,42 +180,6 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
               style={{animation:"holyPulse 2.5s ease-in-out infinite"}}/>;
           })()}
 
-          {/* ── Southern Border — Mountain Range ── */}
-          <defs>
-            <linearGradient id="southFog" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#080c10" stopOpacity={0}/>
-              <stop offset="60%" stopColor="#060810" stopOpacity={0.85}/>
-              <stop offset="100%" stopColor="#040608" stopOpacity={1}/>
-            </linearGradient>
-            <linearGradient id="mtnGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3a3228"/>
-              <stop offset="60%" stopColor="#1e1a14"/>
-              <stop offset="100%" stopColor="#0a0806"/>
-            </linearGradient>
-            <linearGradient id="mtnGrad2" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#2a2420"/>
-              <stop offset="100%" stopColor="#0e0c0a"/>
-            </linearGradient>
-          </defs>
-          {/* Far background peaks */}
-          <polygon points="0,638 30,618 60,628 100,610 140,622 185,605 230,618 275,600 320,614 365,598 410,612 455,598 500,612 545,600 590,616 635,603 670,618 700,607 700,660 0,660"
-            fill="url(#mtnGrad)" opacity={0.9} style={{pointerEvents:"none"}}/>
-          {/* Snow caps on far peaks */}
-          {[[30,618],[100,610],[185,605],[275,600],[365,598],[455,598],[545,600],[635,603]].map(([px,py],i) => (
-            <polygon key={i} points={`${px},${py} ${px-10},${py+14} ${px+10},${py+14}`}
-              fill="#d8d4cc" opacity={0.5} style={{pointerEvents:"none"}}/>
-          ))}
-          {/* Mid closer peaks */}
-          <polygon points="0,650 25,635 55,645 90,628 130,640 175,623 220,636 270,619 320,633 370,617 420,631 470,619 520,633 565,621 610,635 650,622 685,636 700,640 700,660 0,660"
-            fill="url(#mtnGrad2)" opacity={0.95} style={{pointerEvents:"none"}}/>
-          {/* Fog overlay */}
-          <rect x={0} y={610} width={DW} height={50} fill="url(#southFog)" style={{pointerEvents:"none"}}/>
-          <text x={DW/2} y={DH-6} textAnchor="middle"
-            fontSize={7} fill="#6a5a40" letterSpacing={5} opacity={0.6}
-            fontFamily="'Cinzel',serif" style={{pointerEvents:"none"}}>
-            THE SOUTHERN PEAKS
-          </text>
-
           {/* Vignette */}
           <rect width={DW} height={DH} fill="url(#wm-vig)"/>
 
@@ -281,15 +187,12 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
           {dotPos && zoom && (() => {
             const worldX = (screenW / 2 - dotPos.x) / zoom;
             const worldY = (screenH / 2 - dotPos.y) / zoom;
-            // Invert iso formula: world px → tile (c, r)
             const u = worldX - ROWS * TW / 2;
             const v = worldY - TOP_PAD;
             const tileC = (u / (TW / 2) + v / (TH / 2)) / 2;
             const tileR = (v / (TH / 2) - u / (TW / 2)) / 2;
-            // Tile (c,r) maps directly to SVG design space x=c, y=r*(660/700)
-            const Y_SCALE = DH / 700;
             const dotX = tileC * sx;
-            const dotY = tileR * Y_SCALE * sy;
+            const dotY = tileR * sy;
             if (dotX < 0 || dotX > DW || dotY < 0 || dotY > DH) return null;
             return (
               <g style={{pointerEvents:"none"}}>
@@ -357,7 +260,6 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
             return (
               <g key={`icon_${reg.key}`} style={{cursor:"pointer"}}
                 onClick={() => setSelected(isSel ? null : reg.key)}>
-                {/* Invisible expanded hit area for touch */}
                 <rect x={cx-sz-hitPad} y={by-sz*1.4-hitPad} width={sz*2+hitPad*2} height={sz*2.8+hitPad*2} fill="transparent"/>
                 {owned && <circle cx={cx} cy={by} r={sz*1.6} fill={col} opacity={0.15}/>}
                 {isSel && <circle cx={cx} cy={by} r={sz*2.1} fill="none" stroke={col} strokeWidth={1.4} opacity={0.8}/>}
