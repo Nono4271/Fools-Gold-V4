@@ -111,56 +111,16 @@ function drawAllTiles(gfx, tiles, rMin, rMax, cMin, cMax, selKey, mode, cByTile,
       const tile = tiles[`${c},${r}`];
       if (!tile) continue;
 
-      const { terrain, owner, isHQ, isWin, isKeep, isKeepPart, isHQPart, isShore, isBorderMtn } = tile;
+      const { terrain, owner, isHQ, isWin, isKeep, isKeepPart, isHQPart, isShore } = tile;
 
-      // Draw shore/ocean tiles as water
       if (isShore) {
         const { cx, cy } = isoXY(c, r);
-        const isOcean = tile.isOcean;
         const mid = cy + TH / 2;
         const TOP = [cx, cy, cx+TW/2, mid, cx, cy+TH, cx-TW/2, mid];
-        // Ocean tiles (northern sea) get deeper color + subtle highlight
-        if (isOcean) {
-          gfx.beginFill(0x0d2a44); gfx.drawPolygon(TOP); gfx.endFill();
-          // Ripple highlight on upper face
-          gfx.beginFill(0x1a4a6e, 0.55); gfx.drawPolygon([cx, cy, cx+TW/2, mid, cx, mid]); gfx.endFill();
-          // Wave glint line
-          const rng = tileRng(c, r); const rx = rng();
-          if (rx > 0.55) {
-            const wx1 = cx - TW*0.25 + rx*TW*0.5, wy1 = cy + TH*0.3 + rx*TH*0.2;
-            gfx.lineStyle(0.8, 0x4a9abf, 0.45);
-            gfx.moveTo(wx1, wy1); gfx.lineTo(wx1 + TW*0.18, wy1 + TH*0.09);
-            gfx.lineStyle(0);
-          }
-        } else {
-          gfx.beginFill(0x1a3a5c); gfx.drawPolygon(TOP); gfx.endFill();
-        }
+        gfx.beginFill(0x1a3a5c); gfx.drawPolygon(TOP); gfx.endFill();
         continue;
       }
 
-      // Southern border mountains — impassable, render as tall jagged peaks
-      if (isBorderMtn) {
-        const { cx, cy } = isoXY(c, r);
-        const rng = tileRng(c, r);
-        const elev = 10 + rng() * 8; // varied height
-        const sy = cy - elev;
-        const mid = sy + TH / 2;
-        const TOP      = [cx, sy,   cx+TW/2, mid,  cx, sy+TH, cx-TW/2, mid];
-        const FACE_L   = [cx, mid,  cx-TW/2, mid,  cx, sy+TH];
-        const FACE_R   = [cx, mid,  cx+TW/2, mid,  cx, sy+TH];
-        gfx.beginFill(0x3a3228); gfx.drawPolygon(TOP); gfx.endFill();
-        gfx.beginFill(0x000000, 0.4); gfx.drawPolygon(FACE_L); gfx.endFill();
-        gfx.beginFill(0x000000, 0.2); gfx.drawPolygon(FACE_R); gfx.endFill();
-        // Snow cap on taller peaks
-        if (elev > 14) {
-          const capH = elev * 0.35;
-          const capMid = (sy + capH/2 + TH/2) - capH*0.3;
-          gfx.beginFill(0xe8e4de, 0.65);
-          gfx.drawPolygon([cx, sy, cx+TW*0.22, capMid, cx, sy+capH, cx-TW*0.22, capMid]);
-          gfx.endFill();
-        }
-        continue;
-      }
       const key = `${c},${r}`;
       const isSel    = selKey === key;
       const isMvTgt  = mode === "selectMarchDest" && mvCmdUid && owner === "player";
@@ -174,7 +134,6 @@ function drawAllTiles(gfx, tiles, rMin, rMax, cMin, cMax, selKey, mode, cByTile,
       const SHADE_UL = [cx, sy,      cx-TW/2, mid,     cx, mid];
       const SHADE_LR = [cx, mid,     cx+TW/2, mid,     cx, sy+TH];
 
-      // Treat part tiles identically to their primary for visual purposes
       const drawAsKeep = isKeep || isKeepPart;
       const drawAsHQ   = isHQ   || isHQPart;
 
@@ -184,7 +143,6 @@ function drawAllTiles(gfx, tiles, rMin, rMax, cMin, cMax, selKey, mode, cByTile,
         if (zoom >= 0.75) { gfx.lineStyle(2, 0xf0c040, 0.8); gfx.drawPolygon(TOP); gfx.lineStyle(0); }
       } else {
         gfx.beginFill(getTileBaseColor(c, r, terrain)); gfx.drawPolygon(TOP); gfx.endFill();
-        // Only draw shading overlays when zoomed in enough to see them
         if (zoom >= 0.75) {
           gfx.beginFill(0xffffff, 0.06); gfx.drawPolygon(SHADE_UL); gfx.endFill();
           gfx.beginFill(0x000000, 0.08); gfx.drawPolygon(SHADE_LR); gfx.endFill();
@@ -245,7 +203,7 @@ function drawAllProps(gfx, tiles, rMin, rMax, cMin, cMax) {
       const r = d - c;
       if (r < rMin || r > rMax) continue;
       const tile = tiles[`${c},${r}`];
-      if (!tile || tile.isHQ || tile.isWin || tile.isKeep || tile.isKeepPart || tile.isHQPart || tile.isShore || tile.isBorderMtn) continue;
+      if (!tile || tile.isHQ || tile.isWin || tile.isKeep || tile.isKeepPart || tile.isHQPart || tile.isShore) continue;
       const { cx, cy } = isoXY(c, r);
       const sy = cy - 4;
       if (tile.rss) {
@@ -399,7 +357,6 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
   const appRef         = useRef(null);
   const worldRef       = useRef(null);
 
-  // Double-buffered tile layer — draw into back, swap with front, no flash
   const tileFrontRef   = useRef(null);
   const tileBackRef    = useRef(null);
   const propsFrontRef  = useRef(null);
@@ -408,11 +365,9 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
   const cmdGfxRef      = useRef(null);
   const cmdTextContRef = useRef(null);
 
-  // Track last rendered bounds to skip redraws when viewport unchanged
   const lastBoundsRef  = useRef(null);
   const redrawRef      = useRef(null);
 
-  // Live refs
   const panRef   = useRef(panSt);
   const zoomRef  = useRef(zoom);
   const tilesRef = useRef(tiles);
@@ -428,9 +383,7 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
   const onPanChangeRef  = useRef(onPanChange);
   const onZoomChangeRef = useRef(onZoomChange);
 
-  useEffect(() => {
-    selRef.current = selKey;
-  }, [selKey]);
+  useEffect(() => { selRef.current = selKey; }, [selKey]);
   useEffect(() => { modeRef.current  = mode; },        [mode]);
   useEffect(() => { mvCmdRef.current = mvCmd; },       [mvCmd]);
   useEffect(() => { onTileClickRef.current  = onTileClick; },  [onTileClick]);
@@ -438,7 +391,6 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
   useEffect(() => { onZoomChangeRef.current = onZoomChange; }, [onZoomChange]);
   useEffect(() => { ZOOM_REF.current = ZOOM_LEVELS; }, [ZOOM_LEVELS]);
 
-  // Expose teleport() so Game.jsx can move the PIXI world instantly without a React re-render
   useImperativeHandle(ref, () => ({
     teleport(px, py) {
       panRef.current = { x: px, y: py };
@@ -446,9 +398,11 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
       lastBoundsRef.current = null;
       redrawRef.current?.redraw(true);
     },
+    redrawOverlays() {
+      redrawRef.current?.redrawOverlays();
+    },
   }), []);
 
-  // Touch/drag state — mutated directly, never triggers re-render
   const tDragFrom   = useRef({ x: 0, y: 0 });
   const tDidDrag    = useRef(false);
   const pinchDist0  = useRef(null);
@@ -482,13 +436,11 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
     world.y = panRef.current.y;
     world.scale.set(zoomRef.current);
 
-    // Single Graphics objects per layer — clear+draw happen in same JS call,
-    // PIXI batches all rendering to end of tick so there is never a blank frame.
     const tileGfx  = new PIXI.Graphics(); world.addChild(tileGfx);
     tileFrontRef.current = tileGfx; tileBackRef.current = tileGfx;
     const propsGfx = new PIXI.Graphics(); world.addChild(propsGfx);
     propsFrontRef.current = propsGfx; propsBackRef.current = propsGfx;
-    const selGfx = new PIXI.Graphics(); world.addChild(selGfx); // selection overlay — instant, no full redraw
+    const selGfx = new PIXI.Graphics(); world.addChild(selGfx);
     const marchGfx = new PIXI.Graphics(); world.addChild(marchGfx); marchGfxRef.current = marchGfx;
     const cmdGfx = new PIXI.Graphics(); world.addChild(cmdGfx); cmdGfxRef.current = cmdGfx;
     const cmdTextCont = new PIXI.Container(); world.addChild(cmdTextCont); cmdTextContRef.current = cmdTextCont;
@@ -509,7 +461,6 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
       selGfx.lineStyle(0);
     }
 
-    /* ── Compute viewport bounds ── */
     function getViewBounds(buf = 6) {
       const pan = panRef.current, zoom = zoomRef.current;
       const vw = window.innerWidth, vh = window.innerHeight;
@@ -527,7 +478,6 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
       };
     }
 
-    /* ── Full scene redraw ── */
     function redraw(force = false) {
       const b = getViewBounds();
       const last = lastBoundsRef.current;
@@ -564,17 +514,13 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
       redrawSelection: (key) => { selGfx.clear(); if (key) drawSelection(key); },
     };
 
-    // Initial draw
     redraw(true);
     redrawOverlays();
 
-    /* ── Ticker: continuous render loop. Skips while panning (world moves via x/y).
-          Handles initial draw, post-pan edge tiles, and state-driven redraws. ── */
     app.ticker.add(() => {
       if (!isPanning.current) redraw();
     });
 
-    /* ── Resize ── */
     const ro = new ResizeObserver(() => {
       if (appRef.current) {
         appRef.current.renderer.resize(el.clientWidth, el.clientHeight);
@@ -584,7 +530,6 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
     });
     ro.observe(el);
 
-    /* ── Zoom toward screen center — keeps the viewed area stable ── */
     function applyZoom(newZoom) {
       const oldZoom = zoomRef.current;
       const cx = window.innerWidth  / 2;
@@ -606,7 +551,6 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
       onPanChangeRef.current(np);
     }
 
-    /* ── Wheel zoom ── */
     const onWheel = e => {
       e.preventDefault();
       const delta = e.deltaY < 0 ? 1 : -1;
@@ -617,15 +561,11 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
     };
     el.addEventListener("wheel", onWheel, { passive: false });
 
-    /* ── Touch ── */
     const onTS = e => {
       e.preventDefault();
       if (e.touches.length === 1) {
         tDragFrom.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         tDidDrag.current = false;
-        // Do NOT set isPanning=true here — that suppresses the ticker redraw that
-        // fills edge tiles after the previous pan. isPanning is set in onTM only
-        // once actual movement is detected.
       } else if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -635,7 +575,7 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
     };
     const onTM = e => {
       e.preventDefault();
-      if (!isPanning.current && tDidDrag.current) return; // finger lifted — drop stale events
+      if (!isPanning.current && tDidDrag.current) return;
       if (e.touches.length === 1) {
         const dx = e.touches[0].clientX - tDragFrom.current.x;
         const dy = e.touches[0].clientY - tDragFrom.current.y;
@@ -646,7 +586,7 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
           panRef.current = np;
           world.x = np.x; world.y = np.y;
           isPanning.current = true;
-          onPanChangeRef.current(np); // keep Game.jsx panRef current during drag
+          onPanChangeRef.current(np);
         }
       } else if (e.touches.length === 2 && pinchDist0.current !== null) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -671,14 +611,12 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
             selGfx.clear();
             selRef.current = key;
             drawSelection(key);
-            lastBoundsRef.current = null; // force tile layer redraw to clear old outline
+            lastBoundsRef.current = null;
             onTileClickRef.current(key, e);
           }
         }
         isPanning.current = false;
         tDidDrag.current = false;
-        // Lock the pan position at the exact moment the finger lifts.
-        // Any touchmove that iOS queued after this point gets clamped to this position.
         const lockedPan = { ...panRef.current };
         world.x = lockedPan.x;
         world.y = lockedPan.y;
@@ -691,7 +629,6 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
     el.addEventListener("touchend",    onTE, { passive: false });
     el.addEventListener("touchcancel", onTE, { passive: false });
 
-    /* ── Mouse (desktop) — native listeners bypass React overhead ── */
     let mDrag = false, mMoved = false, mFrom = { x:0, y:0 };
     const onMD = e => {
       if (e.button !== 0) return;
@@ -709,8 +646,7 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
         const np = clampPan(panRef.current.x+dx, panRef.current.y+dy, zoomRef.current);
         panRef.current = np;
         world.x = np.x; world.y = np.y;
-        onPanChangeRef.current(np); // keep Game.jsx panRef current
-        // No isPanning suppression for mouse — redraw every frame for smooth desktop pan
+        onPanChangeRef.current(np);
         lastBoundsRef.current = null;
       }
     };
@@ -749,13 +685,6 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Sync pan from props (teleport, HQ center only) ── */
-  // Guard: during normal dragging, onPanChange keeps panRef current but does NOT
-  // call setPanSt (Game.jsx comment explains why). The only time panSt actually
-  // changes is on teleport / HQ-center / initial spawn. In those cases panSt
-  // will differ from panRef, so we apply it. After a normal drag ends,
-  // onPanChange fires with the same value panRef already has — we skip the
-  // world.x/y write entirely, which is what caused the snap-back.
   useEffect(() => {
     const cur = panRef.current;
     if (Math.abs(panSt.x - cur.x) < 0.5 && Math.abs(panSt.y - cur.y) < 0.5) return;
@@ -765,7 +694,6 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
     redrawRef.current?.redraw(true);
   }, [panSt]);
 
-  /* ── Sync zoom from props (zoom buttons) ── */
   useEffect(() => {
     if (!worldRef.current) return;
     const oldZoom = zoomRef.current;
@@ -787,21 +715,16 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
     onPanChangeRef.current(np);
   }, [zoom]);
 
-  /* ── Redraw on UI state changes ── */
   useEffect(() => {
-    // Only clear outline when deselected. Touch handler draws new outlines
-    // immediately — calling redrawSelection here would double-draw.
     if (!selKey) redrawRef.current?.clearSel?.();
   }, [selKey]);
 
   useEffect(() => {
-    // Mode/mvCmd affects tile highlight colours — need full tile redraw
     lastBoundsRef.current = null;
     if (panEndTimer.current) { clearTimeout(panEndTimer.current); panEndTimer.current = null; }
     redrawRef.current?.redrawOverlays();
   }, [mode, mvCmd, zoom]);
 
-  /* ── Invalidate tile cache when map state changes ── */
   useEffect(() => {
     tilesRef.current = tiles;
     lastBoundsRef.current = null;
@@ -809,8 +732,6 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
 
   useEffect(() => {
     cmdsRef.current = cmds;
-    // Don't null lastBoundsRef — march ticks fire every 100ms and forcing a
-    // full tile redraw that often causes the alignment snap mid-pan.
     redrawRef.current?.redrawOverlays();
   }, [cmds]);
 
