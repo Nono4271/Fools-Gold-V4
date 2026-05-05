@@ -161,11 +161,12 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
                   fill={isHG ? "rgba(240,192,64,0.08)" : facCol ? facCol : "#1e1e1e"}
                   opacity={isHG ? 1 : facCol ? 0.35 : 0.7}/>
                 {isSel && <polygon points={scalePts(poly,sx,sy)} fill="white" opacity={0.07}/>}
-                <polygon points={scalePts(poly,sx,sy)} fill="none"
-                  stroke={facCol || (isHG ? "#f0c040" : "#3a3228")}
-                  strokeWidth={isSel ? 2 : 0.8}
-                  strokeOpacity={facCol ? 0.7 : (isHG ? 0.6 : 0.45)}
-                  strokeDasharray={isHG ? "5 3" : undefined}/>
+                {!isHG && (
+                  <polygon points={scalePts(poly,sx,sy)} fill="none"
+                    stroke={facCol || "#3a3228"}
+                    strokeWidth={isSel ? 2 : 0.8}
+                    strokeOpacity={facCol ? 0.7 : 0.45}/>
+                )}
               </g>
             );
           })}
