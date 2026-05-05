@@ -176,9 +176,19 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
             const poly = POLYS["holyGrail"];
             if (!poly) return null;
             const [cx,cy] = centroid(poly);
-            return <circle cx={cx*sx} cy={cy*sy} r={22*sx}
-              fill="rgba(240,192,64,0.1)"
-              style={{animation:"holyPulse 2.5s ease-in-out infinite"}}/>;
+            return (
+              <>
+                <defs>
+                  <clipPath id="hg-clip">
+                    <polygon points={scalePts(poly,sx,sy)}/>
+                  </clipPath>
+                </defs>
+                <circle cx={cx*sx} cy={cy*sy} r={38*sx}
+                  fill="rgba(240,192,64,0.1)"
+                  clipPath="url(#hg-clip)"
+                  style={{animation:"holyPulse 2.5s ease-in-out infinite"}}/>
+              </>
+            );
           })()}
 
           {/* Vignette */}
