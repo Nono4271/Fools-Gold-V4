@@ -58,13 +58,9 @@ export default function RiseToWar() {
   const playerAlignment = getFactionAlignment(facKey);
 
   // ── Tiles — stored in a mutable ref to avoid 490k React reconciliation ──
-  // Components read tilesRef.current directly. Re-renders are triggered by
-  // incrementing tileVersion (a plain integer) when the map changes.
   const [tileVersion, setTileVersion] = useState(0);
   const tilesMapRef = useRef({});
-  // 'tiles' alias so existing code reads work without change
   const tiles = tilesMapRef.current;
-  // setTiles — for full map replacement (initial load, reset)
   const setTiles = useCallback((updater) => {
     if (typeof updater === "function") {
       tilesMapRef.current = updater(tilesMapRef.current);
@@ -74,13 +70,10 @@ export default function RiseToWar() {
     setTileVersion(v => v + 1);
   }, []);
 
-  // patchTile — O(1) single-tile update, avoids spreading 490k keys
-  // Also maintains pKeys when ownership changes
   const patchTile = useCallback((key, patch) => {
     const t = tilesMapRef.current[key];
     if (!t) return;
     tilesMapRef.current[key] = { ...t, ...patch };
-    // Maintain pKeys incrementally if ownership changed
     if ('owner' in patch && patch.owner !== t.owner) {
       const newSet = new Set(pKeysRef.current);
       if (patch.owner === "player") newSet.add(key);
@@ -90,28 +83,24 @@ export default function RiseToWar() {
     }
     setTileVersion(v => v + 1);
   }, []);
+
   const [mapReady, setMapReady] = useState(false);
   const [loadPct,  setLoadPct]  = useState(0);
   const [loadLabel,setLoadLabel]= useState("Generating world...");
-  const [playerHqKey, setPlayerHqKey] = useState(null); // dynamic per-game HQ tile
+  const [playerHqKey, setPlayerHqKey] = useState(null);
   const [rss,    setRss]     = useState({ stone:300, wood:300, ore:300, gas:300 });
   const [gems,   setGems]    = useState(4400);
-  // ── Split cmds: playerCmds in React state, AI cmds in a ref ──
-  // AI march steps mutate aiCmdsRef directly — zero React renders from enemy locomotion.
-  // Only tile captures, battle log, floaties still hit React state (player-visible events).
+
   const [playerCmds, setPlayerCmds] = useState([]);
   const aiCmdsRef = useRef([]);
-  // Merged ref — hooks that need all commanders read from here
   const cmdsRef = useRef([]);
   useEffect(() => { cmdsRef.current = [...playerCmds, ...aiCmdsRef.current]; }, [playerCmds]);
 
-  // setAiCmds — mutates ref, no React render triggered
   const setAiCmds = useCallback((updater) => {
     aiCmdsRef.current = typeof updater === "function" ? updater(aiCmdsRef.current) : updater;
     cmdsRef.current = [...playerCmds, ...aiCmdsRef.current];
   }, [playerCmds]);
 
-  // setCmds shim — splits by owner so FactionScreen / WinScreen work unchanged
   const setCmds = useCallback((updater) => {
     const merged = [...playerCmds, ...aiCmdsRef.current];
     const next = typeof updater === "function" ? updater(merged) : updater;
@@ -122,39 +111,30 @@ export default function RiseToWar() {
     setPlayerCmds(nextPlayer);
   }, [playerCmds]);
 
-  // cmds alias — keeps JSX prop passdowns working without change
   const cmds = playerCmds;
   const [coll,   setColl]    = useState([]);
   const [pityCounters,   setPityCounters]   = useState({ soldier:0, veteran:0, champion:0 });
-  // ── Gear & schematic inventory ──
-  const [gearInventory,       setGearInventory]       = useState([]);   // gear instances
-  const [respectSchematics,   setRespectSchematics]   = useState([]);   // respect schematic items
-  // Pull results now carry 3 slots
-  const [pullResults,         setPullResults]         = useState([]);   // array of pull result objects
-  // Daily free pull: store UTC date string of last free use ("2026-05-01" etc.)
+  const [gearInventory,       setGearInventory]       = useState([]);
+  const [respectSchematics,   setRespectSchematics]   = useState([]);
+  const [pullResults,         setPullResults]         = useState([]);
   const [lastFreePull,   setLastFreePull]   = useState(null);
-  const [dailyHalfUsed, setDailyHalfUsed]  = useState(false); // tracks the 200-gem 2nd daily pull
+  const [dailyHalfUsed, setDailyHalfUsed]  = useState(false);
   const [bldgs,  setBldgs]   = useState({ hq:1, quarry:0, lumber:0, forge:0, refinery:0, barracks:0, training:0, commandcenter:0, healingtent:0, walls:0 });
   const [upgQueue, setUpgQueue] = useState({});
 
-  // ── AI state — 5 AI players (one per non-player faction) ──
-  const [aiFaction,      setAiFaction]      = useState(null); // kept for backwards compat (primary AI)
+  const [aiFaction,      setAiFaction]      = useState(null);
   const [aiRss,          setAiRss]          = useState({ stone:300, wood:300, ore:300, gas:300 });
   const [aiBldgs,        setAiBldgs]        = useState({ hq:1, quarry:0, lumber:0, forge:0, refinery:0, barracks:0, training:0, commandcenter:0, healingtent:0, walls:0 });
   const [aiBarracksPool, setAiBarracksPool] = useState(barracksCapacity(0));
   const aiLastActionRef = useRef(0);
-  // Per-AI faction HQ keys (keyed by faction string)
   const [aiHqKeys, setAiHqKeys] = useState({});
 
-  // ── Refs for AI hooks ──
-  const tilesRef   = tilesMapRef; // tilesRef IS tilesMapRef — same object, always current
+  const tilesRef   = tilesMapRef;
   const aiRssRef   = useRef({ stone:300, wood:300, ore:300, gas:300 });
   const aiBldgsRef = useRef({ hq:1, quarry:0, lumber:0, forge:0, refinery:0, barracks:0, training:0, commandcenter:0, healingtent:0, walls:0 });
   const aiPoolRef  = useRef(barracksCapacity(0));
-  // Ref that always holds the current player HQ key for use in callbacks/intervals
   const playerHqRef = useRef(null);
 
-  // tilesRef always points to tilesMapRef.current — no sync needed
   useEffect(() => { aiRssRef.current   = aiRss;          }, [aiRss]);
   useEffect(() => { aiBldgsRef.current = aiBldgs;        }, [aiBldgs]);
   useEffect(() => { aiPoolRef.current  = aiBarracksPool; }, [aiBarracksPool]);
@@ -170,7 +150,7 @@ export default function RiseToWar() {
       );
       const t = setTimeout(() => {
         setDailyHalfUsed(false);
-        scheduleReset(); // reschedule for the next midnight
+        scheduleReset();
       }, msUntilMidnightUTC);
       return t;
     };
@@ -198,21 +178,17 @@ export default function RiseToWar() {
     });
   }, [aiBldgs.walls, mapReady]);
 
-  // ── Player army ──
   const [barracksPool,   setBarracks]      = useState(barracksCapacity(0));
   const [woundedTroops,  setWounded]       = useState(0);
-  // Bug 8: healed troops that couldn't fit in barracksPool wait here until capacity opens up
   const [woundedQueue,   setWoundedQueue]  = useState(0);
   const [trainingQueue,  setTrainingQueue] = useState(null);
   const [trainSlider,    setTrainSlider]   = useState(100);
 
-  // ── Battle log ──
   const [bLog,          setBLog]          = useState([]);
   const [battles,       setBattles]       = useState([]);
   const [unseenBattles, setUnseenBattles] = useState(0);
   const [showBattleLog, setShowBattleLog] = useState(false);
 
-  // ── UI state ──
   const [mode,       setMode]      = useState("view");
   const [selKey,     setSelKey]    = useState(null);
   const [popupPos,   setPopupPos]  = useState(null);
@@ -231,10 +207,8 @@ export default function RiseToWar() {
   const [deletingTiles,    setDeletingTiles]    = useState({});
   const [deletingSecsLeft, setDeletingSecsLeft] = useState({});
 
-  // Ticks every second so draw-rematch countdowns in TilePopup stay live
   const [nowTick, setNowTick] = useState(() => Date.now());
 
-  // ── Center view on player HQ ──
   const centerOnHQ = useCallback(() => {
     const hqKey = playerHqRef.current || `${HQP.player.c},${HQP.player.r}`;
     const [hc, hr] = hqKey.split(",").map(Number);
@@ -248,7 +222,6 @@ export default function RiseToWar() {
 
   const onPanChange = useCallback(np => { panRef.current = np; }, []);
 
-  // ── Teleport to tile coordinate (used by WorldMap) ──
   const teleportTo = useCallback((tc, tr) => {
     const { cx, cy } = isoXY(tc, tr);
     const z = zoomRef.current;
@@ -258,7 +231,6 @@ export default function RiseToWar() {
     mapRendererRef.current?.teleport(px, py);
   }, []);
 
-  // ── HQ menu ──
   const [hqOpen, setHqOpen] = useState(false);
   const [worldMapOpen, setWorldMapOpen] = useState(false);
   const [worldMapPrompt, setWorldMapPrompt] = useState(false);
@@ -267,7 +239,6 @@ export default function RiseToWar() {
   const [cmdScreenUid,   setCmdScreenUid]   = useState(null);
   const [gearScreenOpen, setGearScreenOpen] = useState(false);
 
-  // ── Map pan/zoom ──
   const panRef  = useRef({ x:4, y:4 });
   const mapRendererRef = useRef(null);
   const [panSt, setPanSt] = useState({ x:4, y:4 });
@@ -281,13 +252,9 @@ export default function RiseToWar() {
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { mvCmdRef.current = mvCmd; }, [mvCmd]);
 
-  // Clamp pan whenever zoom changes so the viewport never lands outside the tile grid.
   const handleZoomChange = useCallback((newZoom) => {
     if (newZoom < ZOOM_LEVELS[0]) { setWorldMapPrompt(true); return; }
     setZoom(newZoom);
-    // MapRenderer's useEffect([zoom]) recomputes and applies the clamped pan position.
-    // Do NOT call setPanSt here — it fires useEffect([panSt]) which overwrites
-    // world.x/y with a value computed from a potentially stale panRef, causing the snap.
   }, []);
 
   // ── Init map on game start via Web Worker ──
@@ -328,7 +295,6 @@ export default function RiseToWar() {
             siege: hqSiegeValue(0), siegeMax: hqSiegeValue(0),
             garrisonDefeated: false, resetAt: null,
           };
-          // 2x2 HQ footprint — mark adjacent tiles as visual HQ parts
           const [hc, hr] = playerSpawn.split(",").map(Number);
           [[1,0],[0,1],[1,1]].forEach(([dc,dr]) => {
             const fk = `${hc+dc},${hr+dr}`;
@@ -339,7 +305,7 @@ export default function RiseToWar() {
           });
           setPlayerHqKey(playerSpawn);
           const { cx, cy } = isoXY(hc, hr);
-          const initZoom = 1.25; // matches default zoom state
+          const initZoom = 1.25;
           const px = -cx * initZoom + window.innerWidth / 2;
           const py = -cy * initZoom + window.innerHeight / 2;
           panRef.current = { x: px, y: py };
@@ -381,7 +347,6 @@ export default function RiseToWar() {
         ) || aiFactions[0];
         setAiFaction(primaryAiFk);
 
-        // Relocate commanders from placeholder to real HQ keys
         setPlayerCmds(prev => prev.map(cmd => {
           if (cmd.owner === "player") {
             const spawn = spawnKeys[facKey];
@@ -394,13 +359,13 @@ export default function RiseToWar() {
           return cmd;
         }));
 
-        rawMap.__ready = true; // flag checked by mapReady effect
-        // Populate impassable set for pathfinding (ocean + border mountain tiles)
+        rawMap.__ready = true;
+        // Shore tiles are impassable
         const impassableKeys = Object.values(rawMap)
-          .filter(t => t.isOcean || t.isBorderMtn)
+          .filter(t => t.isShore)
           .map(t => t.k);
         setImpassableTiles(impassableKeys);
-        initPathfinding(impassableKeys); // seed pathfinding worker
+        initPathfinding(impassableKeys);
         setTiles(rawMap);
       }
     };
@@ -420,7 +385,7 @@ export default function RiseToWar() {
   useEffect(() => {
     if (screen !== "game") {
       setMapReady(false);
-      setTiles({});  // empty object, no __ready flag
+      setTiles({});
       setLoadPct(0);
       setLoadLabel("Generating world...");
     }
@@ -454,7 +419,7 @@ export default function RiseToWar() {
   const { tickAiRss, tickAiMarch, tickAiEcon } = useAI({
     screen, aiFaction,
     cmdsRef, tilesRef, aiRssRef, aiBldgsRef, aiPoolRef, aiLastActionRef,
-    setCmds: setAiCmds,   // AI locomotion/economy → ref only, no React renders
+    setCmds: setAiCmds,
     setAiRss, setAiBldgs, setAiBarracksPool,
   });
 
@@ -464,9 +429,9 @@ export default function RiseToWar() {
 
   useMarch({
     screen, tiles, tileVersion, bldgs,
-    cmds: cmdsRef.current,   // merged snapshot for arrival checks
-    setCmds: setPlayerCmds,  // player cmd changes → React state
-    setAiCmds,               // AI retreat/move after battle → ref only
+    cmds: cmdsRef.current,
+    setCmds: setPlayerCmds,
+    setAiCmds,
     setTiles, patchTile, setWounded, setBarracks,
     setBattles, setBLog, setWinner, setUnseenBattles,
     tilesRef, floaty, gearInventory,
@@ -474,7 +439,6 @@ export default function RiseToWar() {
     aiHqKeys,
   });
 
-  // ── Game Loop Worker — owns all setInterval timing off the main thread ──
   useGameLoop({
     screen,
     cmds,
@@ -498,8 +462,6 @@ export default function RiseToWar() {
     onTick: (now) => setNowTick(now),
   });
 
-  // Siege reset and nowTick are handled by useGameLoop worker (onSiegeReset / onTick)
-
   // ── Reinforcement march tick ──
   useEffect(() => {
     if (screen !== "game") return;
@@ -510,15 +472,11 @@ export default function RiseToWar() {
         if (!prev.length) return prev;
         const next = [];
         prev.forEach(rm => {
-          // Bug 31 fix: guard against a rein march with a null/empty path
           if (!rm.path || rm.path.length === 0) return;
-          // ── Redirect: turn back if target commander is gone or tile flipped ──
           if (!rm.returning) {
             const targetCmd  = cmdsRef.current.find(c => c.uid === rm.cmdUid && c.owner === "player");
             const destKey    = rm.path[rm.path.length - 1];
             const destTile   = tilesRef.current[destKey];
-            // Only consider commander gone if they have no troops AND aren't mid-march
-            // (a marching commander with 0 troops is retreating — still valid destination)
             const cmdGone    = !targetCmd || (targetCmd.troops === 0 && !targetCmd.march && targetCmd.tk !== destKey);
             const tileFlipped = destTile && destTile.owner !== "player" && destKey !== hqKey;
             if (cmdGone || tileFlipped) {
@@ -527,7 +485,6 @@ export default function RiseToWar() {
               if (returnPath && returnPath.length >= 2) {
                 next.push({ ...rm, returning: true, path: returnPath, step: 0, lastStepTime: now });
               } else {
-                // No return path — refund directly to barracks rather than losing the troops
                 setBarracks(pool => {
                   const cap   = barracksCapacity(bldgs.barracks || 0);
                   const space = Math.max(0, cap - pool);
@@ -544,7 +501,6 @@ export default function RiseToWar() {
           const nextStep = rm.step + 1;
           if (nextStep >= rm.path.length) {
             if (rm.returning) {
-              // Return to barracks — restore up to current capacity; excess is lost
               setBarracks(pool => {
                 const cap   = barracksCapacity(bldgs.barracks || 0);
                 const space = Math.max(0, cap - pool);
@@ -552,12 +508,10 @@ export default function RiseToWar() {
               });
               floaty(`🏰 ${rm.amount} reinforcements returned to barracks`, "#88aaff", hqKey);
             } else {
-              // Arrived — cap to command capacity; return any overflow to barracks
               setPlayerCmds(cmds => cmds.map(c => {
                 if (c.uid !== rm.cmdUid) return c;
                 const cap       = cmdCommand(c.lvl||5, bldgs.commandcenter||0, (c.cls==="leader"&&(c.lvl||5)>=25)?500:0);
                 const newTroops = Math.min(cap, (c.troops||0) + rm.amount);
-                // Bug 22 fix: troops that don't fit go back to barracks
                 const overflow  = ((c.troops||0) + rm.amount) - newTroops;
                 if (overflow > 0) {
                   setBarracks(pool => {
@@ -623,20 +577,16 @@ export default function RiseToWar() {
   }, [deletingTiles, floaty]);
 
   // ── Computed ──
-  // pKeys — Set of player-owned tile keys, maintained via patchTileOwner
   const pKeysRef = useRef(new Set());
   const [pKeys, setPKeys] = useState(() => new Set());
 
-  // Full rebuild only at map load
   useEffect(() => {
     if (!tilesMapRef.current.__ready) return;
     const newSet = new Set(Object.keys(tilesMapRef.current).filter(k => tilesMapRef.current[k]?.owner === "player"));
     pKeysRef.current = newSet;
     setPKeys(newSet);
-  }, [mapReady]); // only fires when map becomes ready, not on every tile update
+  }, [mapReady]);
 
-  // AI icon redraw at 5fps — keeps enemy positions visually current without
-  // triggering React reconciliation on every AI march step
   useEffect(() => {
     if (screen !== "game") return;
     const id = setInterval(() => {
@@ -645,7 +595,6 @@ export default function RiseToWar() {
     return () => clearInterval(id);
   }, [screen]);
 
-  // cByTile only depends on playerCmds — AI march steps never retrigger it
   const cByTile = useMemo(() => {
     const m = {};
     playerCmds.forEach(c => { if (c.tk) { m[c.tk]=m[c.tk]||[]; m[c.tk].push(c); } });
@@ -686,7 +635,6 @@ export default function RiseToWar() {
     if (type==="move" && destTile?.owner!=="player") return;
     const boostedSpd = applyGearToCmd(cmd, gearInventory).spd || 60;
     const stepMs = marchStepMs(effectiveMarchSpd(boostedSpd, cmd.troopType));
-    // UI resets instantly — path calc runs in pathfinding worker (off main thread)
     setMode("view"); setMvCmd(null); setSelKey(null); setPopupPos(null);
     findPath(cmd.tk, destKey).then(path => {
       if (!path || path.length < 2) return;
@@ -727,7 +675,6 @@ export default function RiseToWar() {
     setSliderVals(v => ({ ...v, [`rein_${cmd.uid}`]:undefined }));
     findPath(hqKey, cmd.tk).then(path => {
       if (!path || path.length < 2) return;
-      // Bug 32 fix: only one active (non-returning) rein march per commander allowed
       setReinMarches(prev => {
         if (prev.some(r => r.cmdUid === cmd.uid && !r.returning)) return prev;
         setBarracks(pool => Math.max(0, pool - amount));
@@ -789,18 +736,15 @@ export default function RiseToWar() {
     setUpgQueue(q => ({ ...q, [type]:{ endsAt:Date.now()+dur, startedAt:Date.now(), newLvl:lvl+1, dur } }));
   }, [bldgs, canAfford, upgQueue]);
 
-  // ── Pull pricing helpers (doc §6.1) ─────────────────────────────────────────
-  // 1st daily pull: free. 2nd daily pull: 200 gems. All further: 400 gems.
-  // "daily" resets at 00:00 UTC.
-  const todayUTC = () => new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const todayUTC = () => new Date().toISOString().slice(0, 10);
   const isFreeAvailable  = lastFreePull !== todayUTC();
   const isHalfAvailable  = !isFreeAvailable && !dailyHalfUsed;
 
   const pullCost = (n) => {
-    if (n === 10) return 4000; // 10× at full price
-    if (isFreeAvailable)  return 0;    // 1st daily: free
-    if (isHalfAvailable)  return 200;  // 2nd daily: half price
-    return 400;                         // all further: full price
+    if (n === 10) return 4000;
+    if (isFreeAvailable)  return 0;
+    if (isHalfAvailable)  return 200;
+    return 400;
   };
 
   const pull = useCallback((n) => {
@@ -812,17 +756,15 @@ export default function RiseToWar() {
     else if (isHalfAvailable && n === 1) setDailyHalfUsed(true);
 
     const alignFactions    = ALIGNMENT[playerAlignment]?.factions;
-    const playerAlignKey   = playerAlignment; // "humans"|"creatures"
+    const playerAlignKey   = playerAlignment;
     const hqk              = playerHqRef.current || `${HQP.player.c},${HQP.player.r}`;
     const newPity          = { ...pityCounters };
     const newGear          = [];
     const newSchematics    = [];
     const allPullResults   = [];
 
-    // Build commander pool for this alignment (for schematic targeting)
     const commanderPool = HDEFS.filter(h => alignFactions && alignFactions.includes(h.faction));
 
-    // Each "pull" is 3 slots (doc §6.2). For x10 we do 10 × 3-slot pulls.
     for (let p = 0; p < n; p++) {
       const { slot1, slot2, slot3 } = rollFullPull(alignFactions, playerAlignKey, newPity, commanderPool);
       const slots = [slot1, slot2, slot3];
@@ -856,19 +798,14 @@ export default function RiseToWar() {
 
     if (newGear.length) setGearInventory(prev => [...prev, ...newGear]);
 
-    // Process commander results first so we know which are maxed before handling schematics
     const cmdResults = allPullResults
       .flatMap(pr => pr.slots)
       .filter(s => s.type === "commander")
       .map(s => s.data);
 
-    // Schematics: commander-specific unless that commander is already r15 → becomes generic (+30)
     const processedSchematics = newSchematics.map(s => {
-      if (s.isGeneric) return s; // already generic
-      // Check if this commander is maxed in current collection
-      // We can't read cmds state here synchronously, so we check via a snapshot passed in closure.
-      // Instead we defer this check to the setCmds updater below and collect overflowed ones.
-      return s; // will be checked after cmds update
+      if (s.isGeneric) return s;
+      return s;
     });
     if (processedSchematics.length) setRespectSchematics(prev => [...prev, ...processedSchematics]);
 
@@ -892,20 +829,17 @@ export default function RiseToWar() {
             nx[idx] = { ...updated, _justPromoted: null };
           }
         });
-        // Convert commander-specific schematics targeting a maxed (r15) commander → generic (+30)
         if (processedSchematics.length) {
           const converted = processedSchematics.map(s => {
-            if (s.isGeneric || !s.commanderId) return null; // already handled above
+            if (s.isGeneric || !s.commanderId) return null;
             const ownerCmd = nx.find(x => x.id === s.commanderId && x.owner === "player");
             if (ownerCmd && ownerCmd.respectLevel >= RESPECT_MAX) {
-              // Commander is maxed → downgrade to generic schematic
               return { ...s, isGeneric: true, commanderId: null, commanderName: null,
                 points: 30, n: `Generic ${s.rarity.charAt(0).toUpperCase() + s.rarity.slice(1)} Schematic` };
             }
-            return null; // not maxed, leave as-is
+            return null;
           }).filter(Boolean);
           if (converted.length) {
-            // Replace the converted ones in respectSchematics
             setRespectSchematics(prev => {
               const ids = new Set(converted.map(c => c.instanceId));
               return [...prev.filter(x => !ids.has(x.instanceId)), ...converted];
@@ -927,7 +861,7 @@ export default function RiseToWar() {
     if (e?.stopPropagation) e.stopPropagation();
     const tile = tilesRef.current[k];
     if (!tile) return;
-    if (tile.isShore || tile.isOcean || tile.isBorderMtn) return;
+    if (tile.isShore) return;
 
     const mode = modeRef.current;
     const mvCmd = mvCmdRef.current;
@@ -994,7 +928,6 @@ export default function RiseToWar() {
     <div style={{width:"100vw",height:"100vh",position:"relative",overflow:"hidden",background:"#0e1014",userSelect:"none",touchAction:"none"}}>
       <style>{CSS}</style>
 
-
       {/* ── Loading overlay ── */}
       {!mapReady && (
         <div style={{
@@ -1022,7 +955,6 @@ export default function RiseToWar() {
             animation: "shimmer 3s linear infinite",
             letterSpacing: ".15em",
           }}>FOOLS GOLD</div>
-          {/* Progress bar */}
           <div style={{ width: 220, display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{
               width: "100%", height: 4,
@@ -1046,6 +978,7 @@ export default function RiseToWar() {
           </div>
         </div>
       )}
+
       <HUD facName={facName} pKeys={pKeys} rss={rss} gems={gems} />
 
       <MapRenderer
@@ -1069,7 +1002,6 @@ export default function RiseToWar() {
             handleZoomChange(ZOOM_LEVELS[idx - 1]);
           }}
           style={{width:36,height:36,background:"rgba(8,10,14,.92)",border:"1px solid #2a2010",color:"#c8a060",fontSize:18,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:6,boxShadow:"0 2px 8px rgba(0,0,0,.5)"}}>−</button>
-
       </div>
 
       {/* Floaties */}
@@ -1189,7 +1121,6 @@ export default function RiseToWar() {
         />
       )}
 
-      {/* World map prompt when zooming past minimum */}
       {worldMapPrompt && (
         <div style={{
           position:"fixed", inset:0, zIndex:700,
