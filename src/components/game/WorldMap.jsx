@@ -159,7 +159,8 @@ export default function WorldMap({ tiles, onClose, onTeleport, panRef, zoom }) {
                 onClick={() => setSelected(isSel ? null : reg.key)}>
                 <polygon points={scalePts(poly,sx,sy)}
                   fill={isHG ? "rgba(240,192,64,0.08)" : facCol ? facCol : "#1e1e1e"}
-                  opacity={isHG ? 1 : facCol ? 0.35 : 0.7}/>
+                  opacity={isHG ? 1 : facCol ? 0.35 : 0.7}
+                  clipPath={isHG ? "url(#hg-clip)" : undefined}/>
                 {isSel && <polygon points={scalePts(poly,sx,sy)} fill="white" opacity={0.07}/>}
                 {!isHG && (
                   <polygon points={scalePts(poly,sx,sy)} fill="none"
