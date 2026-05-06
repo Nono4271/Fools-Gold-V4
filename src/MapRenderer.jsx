@@ -166,9 +166,7 @@ function drawAllTiles(gfx, tiles, rMin, rMax, cMin, cMax, selKey, mode, cByTile,
       const sy  = cy - elev;
       const mid = sy + TH / 2;
 
-      const TOP      = [cx, sy,      cx+TW/2, mid,     cx, sy+TH, cx-TW/2, mid];
-      const SHADE_UL = [cx, sy,      cx-TW/2, mid,     cx, mid];
-      const SHADE_LR = [cx, mid,     cx+TW/2, mid,     cx, sy+TH];
+      const TOP      = [cx, sy, cx+TW/2, mid, cx, sy+TH, cx-TW/2, mid];
 
       const drawAsKeep = isKeep || isKeepPart;
       const drawAsHQ   = isHQ   || isHQPart;
@@ -179,10 +177,7 @@ function drawAllTiles(gfx, tiles, rMin, rMax, cMin, cMax, selKey, mode, cByTile,
         if (zoom >= 0.75) { gfx.lineStyle(2, 0xf0c040, 0.8); gfx.drawPolygon(TOP); gfx.lineStyle(0); }
       } else {
         gfx.beginFill(getTileBaseColor(c, r, terrain)); gfx.drawPolygon(TOP); gfx.endFill();
-        if (zoom >= 0.75) {
-          gfx.beginFill(0xffffff, 0.06); gfx.drawPolygon(SHADE_UL); gfx.endFill();
-          gfx.beginFill(0x000000, 0.08); gfx.drawPolygon(SHADE_LR); gfx.endFill();
-        }
+        // Shade triangles removed — they created a visible X/cross pattern on each tile.
       }
 
       if (owner) {
@@ -755,14 +750,14 @@ export const MapRenderer = memo(forwardRef(function MapRenderer({ tiles, cmds, s
       drawAllTiles(tg, curTiles, b.rMin, b.rMax, b.cMin, b.cMax,
         selRef.current, modeRef.current, cByTile, mvCmdRef.current?.uid, z);
 
-      // Only repaint props when tiles actually changed (propsDirty).
-      // Panning into new areas does NOT need a full prop repaint — the pre-rendered
-      // buffer (buf=10 from phase 2) already covers the visible area.
+      // Always repaint props when propsDirty — don't wait for phase 2 (buf>=10).
+      // Previously props were skipped on phase 1 (buf=4) meaning a quick pan-then-stop
+      // would leave props missing until the idle callback fired.
       if (z >= 1.0 && propsDirty) {
         const pg = propsFrontRef.current;
         pg.clear();
         drawAllProps(pg, curTiles, b.rMin, b.rMax, b.cMin, b.cMax);
-        if (buf >= 10) propsDirty = false; // only clear dirty flag on full phase-2 draw
+        propsDirty = false;
       } else if (z < 1.0) {
         propsFrontRef.current?.clear();
       }
